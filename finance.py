@@ -49,41 +49,53 @@ app.layout = dbc.Container([
                 dbc.CardImg(
                     src="/assets/goog.png",
                     top=True,
-                    style={"width": "6rem"}
+                    style={"width": "8rem"},
+                    className='ml-3'
                 ),
 
                 dbc.CardBody([
                     dbc.Row([
                         dbc.Col([
-                            html.P("CHANGE (1D)")
-                        ]),
+                            html.P("CHANGE (1D)", className='ml-3')
+                        ], width={'size': 5, 'offset': 1}),
                         dbc.Col([
-                            dcc.Graph(id='indicator-graph', figure={},
-                                      config={'displayModeBar': False})
-                        ])
+                            dcc.Graph(
+                                id='indicator-graph',
+                                figure={},
+                                config={'displayModeBar': False}
+                            )
+                        ], width={'size': 3, 'offset': 2})
                     ]),
                     dbc.Row([
                         dbc.Col([
                             dcc.Graph(id='daily-line', figure={},
                                       config={'displayModeBar': False})
-                        ])
+                        ], width=12)
                     ]),
                     dbc.Row([
                         dbc.Col([
                             dbc.Button('SELL')
-                        ]),
+                        ], width=4),
                         dbc.Col([
                             dbc.Button('BUY')
-                        ])
-                    ]),
+                        ], width=4)
+                    ], justify='between'),
                     dbc.Row([
                         dbc.Col([
-                            dbc.Label(id='low-price', children='12.237')
-                        ]),
+                            dbc.Label(
+                                id='low-price',
+                                children='12.237',
+                                className='mt-2 ml-5 bg-white p-1 border border-primary border-top-0'
+                            ),
+                        ], width=4),
                         dbc.Col([
-                            dbc.Label(id='high-price', children='13.418')
-                        ])
-                    ])
+                            dbc.Label(
+                                id='high-price',
+                                children='13.418',
+                                className="mt-2 bg-white p-1 border border-primary border-top-0"
+                            ),
+                        ], width=4)
+                    ], justify='between')
                 ]),
             ],
                 style={'width': '24rem'},
@@ -92,7 +104,6 @@ app.layout = dbc.Container([
         ],
             width=6)
     ], justify='center'),
-
     dcc.Interval(id='update', n_intervals=0, interval=1000 * 5)
 ])
 
@@ -111,7 +122,7 @@ def update_graph(timer):
         mode="delta",
         value=day_end,
         delta={'reference': day_start, 'relative': True, 'valueformat': '.2%'}))
-    fig.update_traces(delta_font={'size':12})
+    fig.update_traces(delta_font={'size': 12})
     fig.update_layout(height=30, width=70)
 
     if day_end >= day_start:
@@ -120,6 +131,7 @@ def update_graph(timer):
         fig.update_traces(delta_decreasing_color='red')
 
     return fig
+
 
 # Line Graph
 @app.callback(
@@ -152,6 +164,45 @@ def update_graph(timer):
     elif day_end < day_start:
         return fig.update_traces(fill='tozeroy',
                                  line={'color': 'red'})
+
+
+# Below the buttons--------------------------------------------------------
+@app.callback(
+    Output('high-price', 'children'),
+    Output('high-price', 'className'),
+    Input('update', 'n_intervals')
+)
+def update_graph(timer):
+    if timer == 0:
+        dff_filtered = dff.iloc[[21, 22]]
+        print(dff_filtered)
+    elif timer == 1:
+        dff_filtered = dff.iloc[[20, 21]]
+        print(dff_filtered)
+    elif timer == 2:
+        dff_filtered = dff.iloc[[19, 20]]
+        print(dff_filtered)
+    elif timer == 3:
+        dff_filtered = dff.iloc[[18, 19]]
+        print(dff_filtered)
+    elif timer == 4:
+        dff_filtered = dff.iloc[[17, 18]]
+        print(dff_filtered)
+    elif timer == 5:
+        dff_filtered = dff.iloc[[16, 17]]
+        print(dff_filtered)
+    elif timer > 5:
+        return dash.no_update
+
+    recent_high = dff_filtered['rate'].iloc[0]
+    older_high = dff_filtered['rate'].iloc[1]
+
+    if recent_high > older_high:
+        return recent_high, "mt-2 bg-success text-white p-1 border border-primary border-top-0"
+    elif recent_high == older_high:
+        return recent_high, "mt-2 bg-white p-1 border border-primary border-top-0"
+    elif recent_high < older_high:
+        return recent_high, "mt-2 bg-danger text-white p-1 border border-primary border-top-0"
 
 
 if __name__ == '__main__':
