@@ -12,29 +12,11 @@ from dotenv import load_dotenv
 
 # -------------------------------------------------------------------------------------
 # # Set up Alpha Vantage Key and financial category
-# load_dotenv()
-# key = os.getenv('ALPHA_VANTAGE_API_KEY')
-#
-# # Calling API and formatting response
-# # Choose your output format or default to JSON (python dict)
-# ts = TimeSeries(key, output_format='pandas') # 'pandas' or 'json' or 'csv'
-# ttm_data, ttm_meta_data = ts.get_intraday(symbol='GOOG',interval='1min', outputsize='compact')
-# df = ttm_data.copy()
-# df=df.transpose()
-# df.rename(index={"1. open":"open", "2. high":"high", "3. low":"low",
-#                  "4. close":"close","5. volume":"volume"},inplace=True)
-# df=df.reset_index().rename(columns={'index': 'indicator'})
-# df = pd.melt(df,id_vars=['indicator'],var_name='date',value_name='rate')
-# df = df[df['indicator']!='volume']
-#
-# # print(df.head(10))
-#
-# df.to_csv("./data/data.csv", index=False)
+load_dotenv()
+key = os.getenv('ALPHA_VANTAGE_API_KEY')
+
 # exit()
 # -------------------------------------------------------------------------------------
-# Read data from csv
-dff = pd.read_csv("./data/data.csv")
-dff = dff[dff.indicator.isin(['high'])]
 
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP],
                 meta_tags=[{
@@ -104,16 +86,45 @@ app.layout = dbc.Container([
         ],
             width=6)
     ], justify='center'),
-    dcc.Interval(id='update', n_intervals=0, interval=1000 * 5)
+    dcc.Store(id='intermediate-value'),
+    # Api allows 500 requests per day rougly every 2,88 min (or 173 sec)
+    dcc.Interval(id='update', n_intervals=0, interval=1000 * 173)
 ])
 
 
-# Indicator Graph
 @app.callback(
-    Output('indicator-graph', 'figure'),
+    Output('intermediate-value', 'data'),
     Input('update', 'n_intervals')
 )
-def update_graph(timer):
+# Calling API and formatting response
+# Choose your output format or default to JSON (python dict)
+
+def request_data(timer):
+    ts = TimeSeries(key, output_format='pandas')  # 'pandas' or 'json' or 'csv'
+    goog_data, goog_meta_data = ts.get_intraday(symbol='GOOG', interval='1min', outputsize='compact')
+    df = goog_data.copy()
+    df = df.transpose()
+    df.rename(index={"1. open": "open", "2. high": "high", "3. low": "low",
+                     "4. close": "close", "5. volume": "volume"}, inplace=True)
+    df = df.reset_index().rename(columns={'index': 'indicator'})
+    df = pd.melt(df, id_vars=['indicator'], var_name='date', value_name='rate')
+    df = df[df['indicator'] != 'volume']
+    print("API GOT CALLED!")
+
+    return df.to_json("./data/data.json", index=False, orient='table')
+
+
+# Indicator Graph -------------------------------------------------------------------------------------
+@app.callback(
+    Output('indicator-graph', 'figure'),
+    Input('intermediate-value', 'data')
+)
+def update_graph(updated_json):
+    # Read data from csv
+    dff = pd.read_json("./data/data.json", orient='table')
+    dff = dff[dff.indicator.isin(['high'])]
+
+    # Clean data for usage
     dff_rv = dff.iloc[::-1]
     day_start = dff_rv[dff_rv['date'] == dff_rv['date'].min()]['rate'].values[0]
     day_end = dff_rv[dff_rv['date'] == dff_rv['date'].max()]['rate'].values[0]
@@ -133,12 +144,17 @@ def update_graph(timer):
     return fig
 
 
-# Line Graph
+# Line Graph -------------------------------------------------------------------------------------
 @app.callback(
     Output('daily-line', 'figure'),
-    Input('update', 'n_intervals')
+    Input('intermediate-value', 'data')
 )
-def update_graph(timer):
+def update_graph(updated_json):
+    # Read data from csv
+    dff = pd.read_json("./data/data.json", orient='table')
+    dff = dff[dff.indicator.isin(['high'])]
+
+    # Clean data for usage
     dff_rv = dff.iloc[::-1]
     fig = px.line(dff_rv, x='date', y='rate',
                   range_y=[dff_rv['rate'].min(), dff_rv['rate'].max()],
@@ -166,36 +182,23 @@ def update_graph(timer):
                                  line={'color': 'red'})
 
 
-# Below the buttons--------------------------------------------------------
+# Below the buttons ------------------------------------------------------------------------------
 @app.callback(
     Output('high-price', 'children'),
     Output('high-price', 'className'),
-    Input('update', 'n_intervals')
+    Input('intermediate-value', 'data')
 )
-def update_graph(timer):
-    if timer == 0:
-        dff_filtered = dff.iloc[[21, 22]]
-        print(dff_filtered)
-    elif timer == 1:
-        dff_filtered = dff.iloc[[20, 21]]
-        print(dff_filtered)
-    elif timer == 2:
-        dff_filtered = dff.iloc[[19, 20]]
-        print(dff_filtered)
-    elif timer == 3:
-        dff_filtered = dff.iloc[[18, 19]]
-        print(dff_filtered)
-    elif timer == 4:
-        dff_filtered = dff.iloc[[17, 18]]
-        print(dff_filtered)
-    elif timer == 5:
-        dff_filtered = dff.iloc[[16, 17]]
-        print(dff_filtered)
-    elif timer > 5:
-        return dash.no_update
+def update_graph(updated_json):
+    # Read data from csv
+    dff = pd.read_json("./data/data.json", orient='table')
+    dff = dff[dff.indicator.isin(['high'])]
 
-    recent_high = dff_filtered['rate'].iloc[0]
-    older_high = dff_filtered['rate'].iloc[1]
+    # Clean data for usage
+    dff['date'] = pd.to_datetime(dff['date'])
+    two_recent_times = dff['date'].nlargest(2)
+    df = dff[dff['date'].isin(two_recent_times.values)]
+    recent_high = df['rate'].iloc[0]
+    older_high = df['rate'].iloc[1]
 
     if recent_high > older_high:
         return recent_high, "mt-2 bg-success text-white p-1 border border-primary border-top-0"
