@@ -47,40 +47,55 @@ app.layout = dbc.Container([
         dbc.Col([
             dbc.Card([
                 dbc.CardImg(
-                    src="/assets/goog.png"
+                    src="/assets/goog.png",
+                    top=True,
+                    style={"width": "6rem"}
                 ),
+
                 dbc.CardBody([
                     dbc.Row([
                         dbc.Col([
-
+                            html.P("CHANGE (1D)")
                         ]),
                         dbc.Col([
-
+                            dcc.Graph(id='indicator-graph', figure={},
+                                      config={'displayModeBar': False})
                         ])
                     ]),
                     dbc.Row([
                         dbc.Col([
-
+                            dcc.Graph(id='daily-line', figure={},
+                                      config={'displayModeBar': False})
                         ])
                     ]),
                     dbc.Row([
                         dbc.Col([
-
+                            dbc.Button('SELL')
                         ]),
                         dbc.Col([
-
+                            dbc.Button('BUY')
                         ])
                     ]),
                     dbc.Row([
                         dbc.Col([
-
+                            dbc.Label(id='low-price', children='12.237')
                         ]),
                         dbc.Col([
-
+                            dbc.Label(id='low-price', children='13.418')
                         ])
                     ])
-                ])
-            ])
-        ])
-    ])
+                ]),
+            ],
+                style={'width': '24rem'},
+                className='mt-3'
+            )
+        ],
+            width=6)
+    ], justify='center'),
+
+    dcc.Interval(id='update', n_intervals=0, interval=1000*5)
 ])
+
+
+if __name__=='__main__':
+    app.run_server(debug=True, port=3000)
